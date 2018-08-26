@@ -1,0 +1,47 @@
+[[install-config-registry-overview]]
+= Registry Overview
+{product-author}
+{product-version}
+:data-uri:
+:icons:
+:experimental:
+:toc: macro
+:toc-title:
+:prewrap!:
+
+toc::[]
+
+== About the Registry
+
+{product-title} can build
+xref:../../architecture/core_concepts/containers_and_images.adoc#docker-images[container
+images] from your source code, deploy them, and manage their lifecycle. To
+enable this, {product-title} provides an internal,
+xref:../../architecture/infrastructure_components/image_registry.adoc#integrated-openshift-registry[integrated
+Docker registry] that can be deployed in your {product-title} environment to
+locally manage images.
+
+== Integrated or Stand-alone Registries
+
+During an initial installation of a full {product-title} cluster, it is likely
+that the registry was deployed automatically during the installation process. If
+it was not, or if you want to further customize the configuration of your
+registry, see
+xref:../../install_config/registry/deploy_registry_existing_clusters.adoc#install-config-deploy-registry-existing-clusters[Deploying
+a Registry on Existing Clusters].
+
+While it can be deployed to run as an integrated part of your full
+{product-title} cluster, the {product-title} registry can alternatively be
+installed separately as a stand-alone container image registry.
+
+To install a stand-alone registry, follow
+xref:../../install/stand_alone_registry.adoc#install-config-installing-stand-alone-registry[Installing a Stand-alone Registry]. This installation path deploys an all-in-one cluster
+running a registry and specialized web console.
+
+== Red Hat Quay Registries
+
+If you need an enterprise-quality container image registry, Red Hat Quay is available both as a hosted service and as software you can install in your own data center or cloud environment. Advanced registry features in Red Hat Quay include geo-replication, image scanning, and the ability to rollback images.
+
+Visit the link:https://quay.io[Quay.io] site to set up your own hosted Quay registry account. After that, the link:https://quay.io/tutorial/[Quay Tutorial] helps you login to the Quay registry and start managing your images. Alternatively, refer to link:https://access.redhat.com/documentation/en-us/red_hat_quay/2.9/html-single/getting_started_with_red_hat_quay/[Getting Started with Red Hat Quay] for information on setting up your own Red Hat Quay registry.
+
+At the moment, you access your Red Hat Quay registry from OpenShift as you would any remote container image registry. To learn how to set up credentials to access Red Hat Quay as a secured registry, refer to xref:../../dev_guide/managing_images.adoc#allowing-pods-to-reference-images-from-other-secured-registries[Allowing Pods to Reference Images from Other Secured Registries].

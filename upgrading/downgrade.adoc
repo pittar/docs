@@ -1,0 +1,222 @@
+[[install-config-downgrade]]
+= Downgrading OpenShift
+{product-author}
+{product-version}
+:icons: font
+:experimental:
+:toc: macro
+:toc-title:
+:prewrap!:
+:description: Manual steps to revert {product-title} to a previous version following an upgrade.
+:keywords: yum
+:context: downgrade
+
+toc::[]
+
+== Overview
+
+Following an {product-title}
+xref:../upgrading/index.adoc#install-config-upgrading-index[upgrade],
+it may be desirable in extreme cases to downgrade your cluster to a previous
+version. The following sections outline the required steps for each system in a
+cluster to perform such a downgrade for the {product-title} 3.10 to 3.9 downgrade
+path.
+
+[IMPORTANT]
+====
+These steps are currently only supported for
+xref:../install/index.adoc#planning-installation-types[RPM-based
+installations] of {product-title} and assumes downtime of the entire cluster.
+====
+
+[[downgrade-verifying-backups]]
+== Verifying Backups
+
+. The Ansible playbook used during the
+xref:../upgrading/index.adoc#install-config-upgrading-index[upgrade process]
+should have created a backup of the *_master-config.yaml_* file. Ensure this and
+the *_scheduler.json_* file exist on your masters:
++
+----
+/etc/origin/master/master-config.yaml.<timestamp>
+/etc/origin/master/scheduler.json
+----
+
+. The procedure in xref:automated_upgrades.adoc#preparing-for-an-automated-upgrade[Preparing for an Automated Upgrade]
+instructed you to back up the following files before proceeding with an upgrade
+from {product-title} 3.9 to 3.10; ensure that you still have these files
+available.
++
+On master hosts:
++
+----
+/usr/lib/systemd/system/atomic-openshift-master-api.service
+/usr/lib/systemd/system/atomic-openshift-master-controllers.service
+/etc/sysconfig/atomic-openshift-master-api
+/etc/sysconfig/atomic-openshift-master-controllers
+----
++
+On node and master hosts:
++
+----
+/usr/lib/systemd/system/atomic-openshift-*.service
+/etc/origin/node/node-config.yaml
+----
++
+On etcd hosts (including masters that have etcd co-located on them):
++
+----
+/etc/etcd/etcd.conf
+/backup/etcd-xxxxxx/backup.db
+----
+
+[[downgrade-shutting-down-the-cluster]]
+== Shutting Down the Cluster
+
+. On all master and node hosts:
++
+----
+# systemctl stop atomic-openshift-node
+----
+
+[[downgrade-removing-rpms]]
+== Removing RPMs and Static Pods
+
+The **-excluder* packages add entries to the exclude directive in the host’s
+*_/etc/yum.conf_* file when installed.
+
+. On all masters, nodes, and etcd members (if using a dedicated etcd cluster),
+remove the following packages:
++
+----
+# yum remove atomic-openshift \
+    atomic-openshift-clients \
+    atomic-openshift-node \
+    atomic-openshift-master \
+    atomic-openshift-sdn-ovs \
+    atomic-openshift-excluder \
+    atomic-openshift-docker-excluder \
+    atomic-openshift-hyperkube
+----
+
+. Verify the packages were removed successfully:
++
+----
+# rpm -qa | grep atomic-openshift
+----
+
+. On control plane hosts (master and etcd hosts), move the static pod definitions:
++
+----
+# mkdir /etc/origin/node/pods-backup
+# mv /etc/origin/node/pods/* /etc/origin/node/pods-backup/
+----
+
+. Reboot each host:
++
+----
+# systemctl reboot
+----
+
+[[downgrade-docker]]
+== Downgrading Docker
+
+Both {product-title} 3.9 and 3.10 require Docker 1.13, so Docker does not need
+to be downgraded.
+
+[[downgrade-reinstalling-rpms]]
+== Reinstalling RPMs
+
+. Disable the {product-title} 3.10 repositories, and re-enable the 3.9
+repositories:
++
+----
+# subscription-manager repos \
+    --disable=rhel-7-server-ose-3.10-rpms \
+    --enable=rhel-7-server-ose-3.9-rpms
+----
+
+. On each master, install the following packages:
++
+----
+# yum install atomic-openshift \
+    atomic-openshift-clients \
+    atomic-openshift-node \
+    atomic-openshift-master \
+    openvswitch \
+    atomic-openshift-sdn-ovs \
+    tuned-profiles-atomic-openshift-node \
+    atomic-openshift-excluder \
+    atomic-openshift-docker-excluder
+----
+
+. On each node, install the following packages:
++
+----
+# yum install atomic-openshift \
+    atomic-openshift-node \
+    openvswitch \
+    atomic-openshift-sdn-ovs \
+    tuned-profiles-atomic-openshift-node \
+    atomic-openshift-excluder \
+    atomic-openshift-docker-excluder
+----
+
+. On each host, verify the packages were installed successfully:
++
+----
+# rpm -qa | grep atomic-openshift
+# rpm -q openvswitch
+----
+
+include::day_two_guide/topics/proc_restoring-etcd.adoc[leveloffset=+1]
+
+include::day_two_guide/topics/proc_adding-etcd-after-restoring.adoc[leveloffset=+2]
+
+include::day_two_guide/topics/proc_bringing-openshift-online.adoc[leveloffset=+1]
+
+[[verifying-the-downgrade]]
+== Verifying the Downgrade
+
+. To verify the downgrade, first check that all nodes are marked as *Ready*:
++
+----
+# oc get nodes
+NAME                        STATUS                     AGE
+master.example.com          Ready,SchedulingDisabled   165d
+node1.example.com           Ready                      165d
+node2.example.com           Ready                      165d
+----
+
+. Verify the successful downgrade of the registry and router, if deployed:
+
+.. Verify you are running the `v3.9` versions of the *docker-registry*
+and *router* images:
++
+----
+# oc get -n default dc/docker-registry -o json | grep \"image\"
+    "image": "openshift3/ose-docker-registry:v3.9",
+# oc get -n default dc/router -o json | grep \"image\"
+    "image": "openshift3/ose-haproxy-router:v3.9",
+----
+
+.. Verify that *docker-registry* and *router* pods are running and in ready state:
++
+----
+# oc get pods -n default
+
+NAME                       READY     STATUS    RESTARTS   AGE
+docker-registry-2-b7xbn    1/1       Running   0          18m
+router-2-mvq6p             1/1       Running   0          6m
+----
+
+. Use the
+xref:../admin_guide/diagnostics_tool.adoc#admin-guide-diagnostics-tool[diagnostics tool]
+on the master to look for common issues and provide suggestions:
++
+----
+# oc adm diagnostics
+...
+[Note] Summary of diagnostics execution:
+[Note] Completed with no errors or warnings seen.
+----

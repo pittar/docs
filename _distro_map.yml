@@ -1,0 +1,11 @@
+---
+openshift-origin:
+  name: OKD
+  author: OKD Documentation Project <dev@lists.openshift.redhat.com>
+  site: community
+  site_name: Documentation
+  site_url: https://docs.okd.io/
+  branches:
+    master:
+      name: Latest
+      dir: latest
